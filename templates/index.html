@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <title>Packet Sniffer</title>
+</head>
+
+<body ng-app="sniffer-app">
+    <div class="jumbotron fluid" ng-controller="snifferController">
+        <h1 class="display-4">Python Packet Sniffer</h1>
+        <p class="lead">A simple Python packet sniffer with support for Wirshark filters.</p>
+        <hr class="my-4">
+        <p>Built with Flask, PyShark and AngularJS.</p>
+        <button ng-click="filter()" class="btn btn-primary btn-lg" role="button">Learn more</button>
+        <button ng-click="clear()" class="btn btn-danger btn-lg" role="button">Clear</button>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover" ng-controller="snifferController">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Packet length</th>
+                                <th>Source address</th>
+                                <th>Destination address</th>
+                                <th>Packet info</th>
+                                <th>Packet summary</th>
+                                <th>Protocol</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <tr ng-repeat="packet in packets">
+                                <td ng-bind="packet.no" </td> <td ng-bind="packet.length" </td> <td
+                                    ng-bind="packet.source" </td> <td ng-bind="packet.destination" </td> <td
+                                    ng-bind="packet.info" </td> <td ng-bind="packet.summary_line" </td> <td
+                                    ng-bind="packet.protocol" </td> <td ng-bind="packet.time" </td> </tr> </tbody>
+                                    </table> </div> </div> </div> </div> <div id="log">
+                </div>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+                <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.8/angular.min.js"></script>
+                <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+                    integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+                    crossorigin="anonymous"></script>
+</body>
+<script>
+    let app = angular.module('sniffer-app', []);
+    app.config(['$interpolateProvider', function ($interpolateProvider) {
+        $interpolateProvider.startSymbol('{a');
+        $interpolateProvider.endSymbol('a}');
+    }]);
+
+    app.controller("snifferController", function ($scope, $timeout) {
+        $scope.packets = [];
+        $scope.data = [];
+
+        let socket = io.connect('http://localhost:5000/test');
+        socket.on('packet', function (msg) {
+            $scope.$apply(function () {
+                $scope.packets.push(msg.pkt);
+            });
+        });
+
+        $scope.filter = function () {
+            console.log('Filter applied.');
+            socket.emit('filter', 'udp');
+        }
+
+        $scope.clear = function() {
+            setTimeout(function() {
+                $scope.$apply(function() {
+                    $scope.packets = [];
+                });
+            }, 100);
+        }
+    });
+    // $(document).ready(function () {
+    //     var socket = io.connect('http://localhost:5000/test');
+    //     socket.on('packet', function (msg) {
+    //         console.log(msg.pkt);
+    //         $("#log").append(msg.pkt).append("<br />");
+    //     });
+    // });
+</script>
+
+</html>
