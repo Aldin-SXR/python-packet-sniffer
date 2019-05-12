@@ -7,49 +7,97 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
         integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.2/css/all.css"
+        integrity="sha384-oS3vJWv+0UjzBfQzYUhtDYW+Pj2yciDJxpsK1OYPAYjqT085Qq/1cq5FLXAZQ7Ay" crossorigin="anonymous">
     <title>Packet Sniffer</title>
 </head>
 
-<body ng-app="sniffer-app">
-    <div class="jumbotron fluid" ng-controller="snifferController">
+<body ng-app="sniffer-app" ng-controller="snifferController">
+    <div class="jumbotron fluid">
         <h1 class="display-4">Python Packet Sniffer</h1>
         <p class="lead">A simple Python packet sniffer with support for Wirshark filters.</p>
         <hr class="my-4">
         <p>Built with Flask, PyShark and AngularJS.</p>
-        <button ng-click="filter()" class="btn btn-primary btn-lg" role="button">Learn more</button>
-        <button ng-click="clear()" class="btn btn-danger btn-lg" role="button">Clear</button>
+
+        <form class="form-inline">
+            <button ng-click="controlCapture()" style="margin-right: 1em"
+                ng-class="{'btn-danger': stopped === false, 'btn-success': stopped === true}" class="btn mb-2"
+                role="button">
+                <span ng-show="!stopped"><i class="fas fa-stop"></i> Stop capture</span>
+                <span ng-show="stopped"><i class="fas fa-play"></i> Start capture</span>
+            </button>
+            <button ng-click="clearCapture()" style="margin-right: 1em" class="btn btn-info mb-2" role="button"><i
+                    class="fas fa-trash"></i>
+                Clear</button>
+            <div class="form-group mb-2">
+                <label for="protocols">Common protocols: &nbsp;</label>
+                <select class="form-control" id="protocols" style="margin-right: 1em" ng-model="protocolDropdown"
+                    ng-change="protocolFilter()">
+                    <option selected value="">All</option>
+                    <option value="http">HTTP</option>
+                    <option value="ip">IPv4</option>
+                    <option value="tcp">TCP</option>
+                    <option value="udp">UDP</option>
+                    <option value="ipv6">IPv6</option>
+                    <option value="arp">ARP</option>
+                    <option value="icmp">ICMP</option>
+                    <option value="dns">DNS</option>
+                    <option value="mdns">MDNS</option>
+                    <option value="ssl">SSL/TLS</option>
+                </select>
+            </div>
+            <div class="form-group mx-sm-3 mb-2" style="float:right">
+                <label for="displayFilter">Advanced (Wireshark) filter: &nbsp;</label>
+                <input type="text" class="form-control" id="displayFilter" placeholder="Filter..."
+                    ng-model="displayFilter">
+            </div>
+            <button ng-click="advancedFilter()" class="btn btn-primary mb-2" role="button" style="margin-right: 1em"><i
+                    class="fas fa-filter"></i>
+                Filter</button>
+            <div class="form-group mb-2">
+                <label>Applied filter: &nbsp;<b ng-bind="appliedFilter"></b></label>
+            </div>
+        </form>
     </div>
     <div class="container">
-        <div class="row">
-            <div class="col-sm-12">
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover" ng-controller="snifferController">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Packet length</th>
-                                <th>Source address</th>
-                                <th>Destination address</th>
-                                <th>Packet info</th>
-                                <th>Packet summary</th>
-                                <th>Protocol</th>
-                                <th>Time</th>
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            <tr ng-repeat="packet in packets">
-                                <td ng-bind="packet.no" </td> <td ng-bind="packet.length" </td> <td
-                                    ng-bind="packet.source" </td> <td ng-bind="packet.destination" </td> <td
-                                    ng-bind="packet.info" </td> <td ng-bind="packet.summary_line" </td> <td
-                                    ng-bind="packet.protocol" </td> <td ng-bind="packet.time" </td> </tr> </tbody>
-                                    </table> </div> </div> </div> </div> <div id="log">
-                </div>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
-                <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.8/angular.min.js"></script>
-                <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
-                    integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
-                    crossorigin="anonymous"></script>
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Time</th>
+                        <th>Packet length</th>
+                        <th>Protocol</th>
+                        <th>Source address</th>
+                        <!-- <th>Source port</th> -->
+                        <th>Destination address</th>
+                        <!-- <th>Destination port</th> -->
+                        <th>Packet info</th>
+                        <th>Packet summary</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body" ng-show="packets && packets.length">
+                    <tr ng-repeat="packet in packets">
+                        <td ng-bind="packet.no" </td> <td ng-bind="packet.time" </td> </td> <td ng-bind="packet.length"
+                            </td> <td ng-bind="packet.protocol" </td> <td ng-bind="packet.source"> </td>
+                        <!-- <td ng-bind="packet.src_port"></td> -->
+                        <td ng-bind="packet.destination" </td> 
+                            <!-- <td ng-bind="packet.dst_port"></td> -->
+                        <td ng-bind="packet.info" </td> <td ng-bind="packet.summary_line" </td> </tr> </tbody> </table>
+                            <div ng-show="loading" style="text-align: center"><img width="60em"
+                                src="lg.dual-ring-loader.gif" alt="loader">
+        </div>
+        <div ng-hide=" (packets && packets.length) || loading" class="text-muted" style="text-align: center">No packets
+            available.
+        </div>
+    </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.7.8/angular.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
 </body>
 <script>
     let app = angular.module('sniffer-app', []);
@@ -60,35 +108,71 @@
 
     app.controller("snifferController", function ($scope, $timeout) {
         $scope.packets = [];
-        $scope.data = [];
+        $scope.stopped = false;
+        $scope.displayFilter = '';
+        $scope.appliedFilter = "none";
+        $scope.loading = true;
+        $scope.protocolDropdown = '';
 
-        let socket = io.connect('http://localhost:5000/test');
+        /** Socket listeners  */
+        let socket = io.connect('http://localhost:5000/sniffer');
+
         socket.on('packet', function (msg) {
             $scope.$apply(function () {
-                $scope.packets.push(msg.pkt);
+                if (!$scope.stopped) {
+                    $scope.packets.push(msg.pkt);
+                }
             });
         });
 
-        $scope.filter = function () {
-            console.log('Filter applied.');
-            socket.emit('filter', 'udp');
+        socket.on('successful connection', function (msg) {
+            $scope.$apply(function () {
+                $scope.loading = false;
+            });
+        });
+
+        socket.on('filter changed', function (msg) {
+            $scope.$apply(function () {
+                $scope.loading = false;
+            });
+        });
+
+        /* Start and stop packet capture */
+        $scope.controlCapture = function () {
+            if ($scope.stopped === false) {
+                socket.emit('stop');
+                $scope.stopped = true;
+            } else {
+                socket.emit('start');
+                $scope.stopped = false;
+            }
         }
 
-        $scope.clear = function() {
-            setTimeout(function() {
-                $scope.$apply(function() {
-                    $scope.packets = [];
-                });
-            }, 100);
+        /* Clear memory */
+        $scope.clearCapture = function () {
+            $scope.packets = [];
+        }
+
+        $scope.filter = function () {
+            $scope.clearCapture();
+            $scope.appliedFilter = $scope.displayFilter === "" ? "all" : ($scope.displayFilter);
+            $scope.loading = true;
+            $timeout(function () {
+                $scope.stopped = false;
+            });
+            socket.emit('filter', $scope.displayFilter);
+        }
+
+        $scope.advancedFilter = function() {
+            $scope.filter();
+            $scope.protocolDropdown = "";
+        }
+
+        $scope.protocolFilter = function () {
+            $scope.displayFilter = $scope.protocolDropdown;
+            $scope.filter();
         }
     });
-    // $(document).ready(function () {
-    //     var socket = io.connect('http://localhost:5000/test');
-    //     socket.on('packet', function (msg) {
-    //         console.log(msg.pkt);
-    //         $("#log").append(msg.pkt).append("<br />");
-    //     });
-    // });
 </script>
 
 </html>
