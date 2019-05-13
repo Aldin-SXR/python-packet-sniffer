@@ -21,7 +21,6 @@ cap = [
 # Set up a worker and a worker threa
 worker = None
 worker_thread = None
-thread_lock = Lock()
 
 class Worker(object):
     def __init__(self, socketio, cap):
@@ -35,6 +34,7 @@ class Worker(object):
         for packet in self.cap[0].sniff_continuously():
             if self.active is True:
                 self.socketio.emit('packet', {'pkt': self.format_packet(packet, None)}, namespace=NAMESPACE)
+                sleep(0.1)
             else:
                 return
 
@@ -85,13 +85,12 @@ def sniff():
     print('Sniffer connected.')
     global worker
     global worker_thread
-    with thread_lock:
-        if worker is not None:
-            worker.stop()
-            worker_thread.join()
-        worker = Worker(socketio, cap)
-        worker_thread = socketio.start_background_task(target=worker.run)
-        socketio.emit('successful connection', namespace=NAMESPACE)
+    if worker is not None and worker_thread is not None:
+        worker.stop()
+        worker_thread.join()
+    worker = Worker(socketio, cap)
+    # worker_thread = socketio.start_background_task(target=worker.run)
+    socketio.emit('successful connection', namespace=NAMESPACE)
 
 @socketio.on('stop', namespace=NAMESPACE)
 def stop():
@@ -104,7 +103,8 @@ def stop():
     print('Sniffer started.')
     global worker
     global worker_thread
-    worker_thread.join()
+    if worker_thread is not None:
+        worker_thread.join()
     worker.start()
     worker_thread = socketio.start_background_task(target=worker.run)
 
@@ -119,15 +119,19 @@ def filter(df):
     global worker
     global worker_thread
     worker.stop()
+    print('Worker stopped.')
     cap = [
         pyshark.LiveCapture(interface='wlp2s0', only_summaries=1, display_filter=df),
         None
         # pyshark.LiveCapture(interface='wlp2s0', display_filter=df)
     ]
     # Restart the worker thread with new data
-    worker_thread.join()
+    if worker_thread is not None:
+        worker_thread.join(5)
+        print('Thread joined.')
     worker.cap = cap;
     worker_thread = socketio.start_background_task(target=worker.run)
+    print('New thread started.')
     # Notify filter change
     socketio.emit('filter changed', namespace=NAMESPACE);
 
@@ -136,8 +140,7 @@ def filter(df):
 def sniff():
     print('Sniffer disconnected.')
     global worker
-    with thread_lock:
-        worker.stop()
+    worker.stop()
 
 if __name__ == '__main__':
     socketio.run(app)
