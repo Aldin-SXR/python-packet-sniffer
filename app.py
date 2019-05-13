@@ -5,15 +5,15 @@ import pyshark
 import json
 from threading import Lock
 
-app = Flask(__name__)
-socketio = SocketIO(app, async_mode="threading")
+DEBUG = False
 NAMESPACE = '/sniffer'
 
-last_filter = ''
+app = Flask(__name__)
+socketio = SocketIO(app, engineio_logger=DEBUG, async_mode="threading")
 
 # Initial capture - all packets
 cap = [
-    pyshark.LiveCapture(interface='wlp2s0', only_summaries=1, display_filter=last_filter),
+    pyshark.LiveCapture(interface='wlp2s0', only_summaries=1),
     None
     # pyshark.LiveCapture(interface='wlp2s0')
 ]
@@ -85,9 +85,10 @@ def sniff():
     print('Sniffer connected.')
     global worker
     global worker_thread
-    if worker is not None and worker_thread is not None:
-        worker.stop()
-        worker_thread.join()
+    if worker is not None:
+         worker.stop()
+    if worker_thread is not None:
+        worker_thread.join(5)
     worker = Worker(socketio, cap)
     # worker_thread = socketio.start_background_task(target=worker.run)
     socketio.emit('successful connection', namespace=NAMESPACE)
@@ -104,14 +105,13 @@ def stop():
     global worker
     global worker_thread
     if worker_thread is not None:
-        worker_thread.join()
+        worker_thread.join(5)
     worker.start()
     worker_thread = socketio.start_background_task(target=worker.run)
 
 @socketio.on('filter', namespace=NAMESPACE)
 def filter(df):
     print('Filter received: ' + df)
-    last_filter = df
     # Edit 'all' filter to be '' (all packets)
     if df == 'all':
         df = ''
@@ -137,7 +137,7 @@ def filter(df):
 
 
 @socketio.on('disconnect', namespace=NAMESPACE)
-def sniff():
+def disconnect():
     print('Sniffer disconnected.')
     global worker
     worker.stop()
